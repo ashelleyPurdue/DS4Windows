@@ -200,8 +200,22 @@ namespace DS4Windows
             }
         }
 
-        private byte lastTouchID;
         public void touchesMoved(TouchpadEventArgs arg, bool dragging)
+        {
+            // If we're in trackball mode, run the trackball logic instead.
+            const bool TRACKBALL_MODE = false;
+            if (TRACKBALL_MODE)
+            {
+                trackballMouse(arg, dragging);
+                return;
+            }
+            
+            // Do the normal touchpad logic
+            touchpadMouse(arg, dragging);
+        }
+
+        private byte lastTouchID;
+        private void touchpadMouse(TouchpadEventArgs arg, bool dragging)
         {
             int touchesLen = arg.touches.Length;
             if ((!dragging && touchesLen != 1) || (dragging && touchesLen < 1))
@@ -314,6 +328,11 @@ namespace DS4Windows
 
             horizontalDirection = xMotion > 0.0 ? Direction.Positive : xMotion < 0.0 ? Direction.Negative : Direction.Neutral;
             verticalDirection = yMotion > 0.0 ? Direction.Positive : yMotion < 0.0 ? Direction.Negative : Direction.Neutral;
+        }
+
+        private void trackballMouse(TouchpadEventArgs arg, bool dragging)
+        {
+
         }
     }
 }
