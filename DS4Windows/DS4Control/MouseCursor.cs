@@ -44,6 +44,7 @@ namespace DS4Windows
 
         /* trackball-related fields */
         private const double TRACKBALL_FRICTION = 0.01;   // TODO: Make this configurable
+        private const double TRACKBALL_SENSITIVITY = 1;   // TODO: Make this configurable
         private const double TRACKBALL_TICKRATE = 144;    // How frequently the trackball updates, measured in ticks per second.
 
         private object trackballMutex = new object();
@@ -354,16 +355,11 @@ namespace DS4Windows
 
         private void trackballMouse(TouchpadEventArgs arg, bool dragging)
         {
-            // Find out how much the user moved their finger
-            double coefficient = Global.TouchSensitivity[deviceNumber] / 100.0;
-            double deltaX = coefficient * arg.touches[0].deltaX;
-            double deltaY = coefficient * arg.touches[0].deltaY;
-
             // Accumulate the movement
             lock (trackballMutex)
             {
-                trackballDeltaX += deltaX;
-                trackballDeltaY += deltaY;
+                trackballDeltaX += arg.touches[0].deltaX;
+                trackballDeltaY += arg.touches[0].deltaY;
             }
         }
 
@@ -391,8 +387,8 @@ namespace DS4Windows
             }
 
             // Move the cursor by the speed
-            int xAction = (int)(trackballXSpeed * trackballTimer.Interval);
-            int yAction = (int)(trackballYSpeed * trackballTimer.Interval);
+            int xAction = (int)(trackballXSpeed * TRACKBALL_SENSITIVITY * trackballTimer.Interval);
+            int yAction = (int)(trackballYSpeed * TRACKBALL_SENSITIVITY * trackballTimer.Interval);
 
             if (xAction != 0 || yAction != 0)
                 InputMethods.MoveCursorBy(xAction, yAction);
