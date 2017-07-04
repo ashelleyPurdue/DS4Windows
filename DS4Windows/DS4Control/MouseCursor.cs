@@ -1,4 +1,6 @@
 ﻿
+using System.Timers;
+
 namespace DS4Windows
 {
     class MouseCursor
@@ -7,6 +9,12 @@ namespace DS4Windows
         public MouseCursor(int deviceNum)
         {
             deviceNumber = deviceNum;
+
+            // Set up the trackball timer
+            trackballTimer.AutoReset = true;
+            trackballTimer.Interval = 1000.0 / TRACKBALL_TICKRATE;
+            trackballTimer.Elapsed += trackballTimer_Elapsed;
+            trackballTimer.Enabled = true;
         }
 
         // Keep track of remainders when performing moves or we lose fractional parts.
@@ -32,6 +40,16 @@ namespace DS4Windows
         double verticalScale = 0.0;
         bool gyroSmooth = false;
         //double gyroSmoothWeight = 0.0;
+
+        /* trackball-related fields */
+        private const double TRACKBALL_FRICTION = 0.01;   // TODO: Make this configurable
+        private const double TRACKBALL_TICKRATE = 120;    // How frequently the trackball updates, measured in ticks per second.
+
+        private object trackballMutex = new object();
+        private Timer trackballTimer = new Timer();
+
+        private double trackballDeltaX = 0;  // How much the user has moved on the trackpad since the last tick
+        private double trackballDeltaY = 0;  // How much the user has moved on the trackpad since the last tick
 
         public virtual void sixaxisMoved(SixAxisEventArgs arg)
         {
@@ -203,7 +221,7 @@ namespace DS4Windows
         public void touchesMoved(TouchpadEventArgs arg, bool dragging)
         {
             // If we're in trackball mode, run the trackball logic instead.
-            const bool TRACKBALL_MODE = false;
+            const bool TRACKBALL_MODE = true;
             if (TRACKBALL_MODE)
             {
                 trackballMouse(arg, dragging);
@@ -332,7 +350,44 @@ namespace DS4Windows
 
         private void trackballMouse(TouchpadEventArgs arg, bool dragging)
         {
+            // Find out how much the user moved their finger
+            double coefficient = Global.TouchSensitivity[deviceNumber] / 100.0;
+            double deltaX = coefficient * arg.touches[0].deltaX;
+            double deltaY = coefficient * arg.touches[0].deltaY;
 
+            // Accumulate the movement
+            lock (trackballMutex)
+            {
+                trackballDeltaX += deltaX;
+                trackballDeltaY += deltaY;
+            }
+        }
+
+        private void trackballTimer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            double deltaX = 0;
+            double deltaY = 0;
+
+            // Get the accumulated movement
+            lock (trackballMutex)
+            {
+                deltaX = trackballDeltaX;
+                deltaY = trackballDeltaY;
+
+                // Clear out the accumulated movement, now that we have grabbed it.
+                trackballDeltaX = 0;
+                trackballDeltaY = 0;
+            }
+
+            // TODO: Calculate speed
+            // TODO: Apply friction
+
+            // TODO: Calculate this using speed, instead of delta
+            int xAction = (int)deltaX;
+            int yAction = (int)deltaY;
+
+            // Move the cursor
+            InputMethods.MoveCursorBy(xAction, yAction);
         }
     }
 }
