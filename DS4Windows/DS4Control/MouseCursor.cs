@@ -1,4 +1,5 @@
 ﻿
+using System;
 using System.Timers;
 
 namespace DS4Windows
@@ -43,13 +44,16 @@ namespace DS4Windows
 
         /* trackball-related fields */
         private const double TRACKBALL_FRICTION = 0.01;   // TODO: Make this configurable
-        private const double TRACKBALL_TICKRATE = 120;    // How frequently the trackball updates, measured in ticks per second.
+        private const double TRACKBALL_TICKRATE = 144;    // How frequently the trackball updates, measured in ticks per second.
 
         private object trackballMutex = new object();
         private Timer trackballTimer = new Timer();
 
-        private double trackballDeltaX = 0;  // How much the user has moved on the trackpad since the last tick
-        private double trackballDeltaY = 0;  // How much the user has moved on the trackpad since the last tick
+        private double trackballDeltaX = 0;     // How much the user has moved on the trackpad since the last tick
+        private double trackballDeltaY = 0;     // How much the user has moved on the trackpad since the last tick
+
+        private double trackballXSpeed = 0;     // How fast the trackball is spinning
+        private double trackballYSpeed = 0;     // How fast the trackball is spinning
 
         public virtual void sixaxisMoved(SixAxisEventArgs arg)
         {
@@ -379,15 +383,33 @@ namespace DS4Windows
                 trackballDeltaY = 0;
             }
 
-            // TODO: Calculate speed
-            // TODO: Apply friction
+            // If there was any movement, update the speed
+            if (Math.Abs(deltaX) > 0 || Math.Abs(deltaY) > 0)
+            {
+                trackballXSpeed = deltaX / trackballTimer.Interval;
+                trackballYSpeed = deltaY / trackballTimer.Interval;
+            }
 
-            // TODO: Calculate this using speed, instead of delta
-            int xAction = (int)deltaX;
-            int yAction = (int)deltaY;
+            // Move the cursor by the speed
+            int xAction = (int)(trackballXSpeed * trackballTimer.Interval);
+            int yAction = (int)(trackballYSpeed * trackballTimer.Interval);
 
-            // Move the cursor
-            InputMethods.MoveCursorBy(xAction, yAction);
+            if (xAction != 0 || yAction != 0)
+                InputMethods.MoveCursorBy(xAction, yAction);
+
+            // Apply friction
+            double cursorSpeed = Math.Sqrt(trackballXSpeed * trackballXSpeed + trackballYSpeed * trackballYSpeed);
+
+            trackballXSpeed /= cursorSpeed;
+            trackballYSpeed /= cursorSpeed;
+
+            cursorSpeed -= TRACKBALL_FRICTION * trackballTimer.Interval;
+            if (cursorSpeed < 0)
+                cursorSpeed = 0;
+
+            trackballXSpeed *= cursorSpeed;
+            trackballYSpeed *= cursorSpeed;
+            
         }
     }
 }
